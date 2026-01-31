@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>极速洗车 Pro+ 批量版</title>
+    <style>
+        :root { --primary: #2563eb; --accent: #f59e0b; --danger: #ef4444; --success: #22c55e; --bg: #f1f5f9; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        .header { background: var(--primary); color: white; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 10; }
+        .container { padding: 12px; max-width: 500px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px; }
+        
+        .member-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .badge { background: #eff6ff; color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        
+        .log-container { margin-top: 15px; background: #fafafa; border-radius: 8px; padding: 10px; }
+        .log-title { font-size: 13px; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .log-item { font-size: 12px; color: #475569; display: flex; justify-content: space-between; padding: 4px 0; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 15px; color: white; cursor: pointer; }
+        .btn-blue { background: var(--primary); }
+        .btn-green { background: var(--success); }
+        .btn-orange { background: var(--accent); }
+        .btn-red { background: var(--danger); }
+        
+        .tab-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; }
+        .tab { flex: 1; text-align: center; padding: 12px; font-size: 12px; color: #64748b; }
+        .tab.active { color: var(--primary); font-weight: bold; }
+        .hidden { display: none; }
+        .hint { font-size: 12px; color: #64748b; margin-bottom: 10px; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<div class="header">🚙 极速洗车 Pro+ (支持批量)</div>
+
+<div class="container">
+    <div id="view-main">
+        <div class="card">
+            <input type="text" id="search-input" placeholder="输入姓名/电话/车牌搜索..." oninput="searchMembers()">
+            <div id="search-results"></div>
+        </div>
+        <div id="member-detail" class="card hidden">
+            <div style="display:flex; justify-content:space-between;">
+                <h3 id="det-name" style="margin:0"></h3>
+                <span id="det-plate" class="badge"></span>
+            </div>
+            <p id="det-phone" style="color:#64748b; font-size:13px; margin:5px 0;"></p>
+            <div style="text-align:center; padding:15px 0;">
+                <div style="font-size:12px; color:#94a3b8;">剩余次数</div>
+                <div id="det-balance" style="font-size:40px; font-weight:bold; color:var(--primary);">0</div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-blue" onclick="confirmAction('wash')">🚗 确认洗车</button>
+                <button class="btn btn-orange" onclick="confirmAction('recharge')">💰 续费充值</button>
+            </div>
+            <div class="log-container">
+                <div class="log-title">🕒 最近记录</div>
+                <div id="det-logs"></div>
+            </div>
+            <button class="btn btn-red" style="width:100%; margin-top:15px; opacity:0.4; font-size:12px;" onclick="deleteMember()">删除会员</button>
+        </div>
+    </div>
+
+    <div id="view-add" class="hidden">
+        <div class="card">
+            <h3>📝 单人登记</h3>
+            <input type="text" id="add-name" placeholder="客户姓名">
+            <input type="text" id="add-plate" placeholder="车牌号">
+            <input type="tel" id="add-phone" placeholder="手机号">
+            <input type="number" id="add-count" placeholder="初始次数">
+            <button class="btn btn-green" style="width:100%" onclick="saveNewMember()">立即开卡</button>
+        </div>
+    </div>
+
+    <div id="view-data" class="hidden">
+        <div class="card">
+            <h3>📊 经营概况</h3>
+            <p>总会员数：<span id="stat-count">0</span> 人</p>
+            <button class="btn btn-blue" style="width:100%" onclick="copyData()">📤 导出备份</button>
+        </div>
+
+        <div class="card">
+            <h3>📥 批量导入</h3>
+            <div class="hint">格式：姓名,手机号,车牌,次数 (每行一个)<br>例如：<br>张三,13800001111,粤B88888,10</div>
+            <textarea id="import-text" rows="5" placeholder="张三,13800001111,粤B88888,10
+李四,13900002222,粤A66666,5"></textarea>
+            <button class="btn btn-orange" style="width:100%" onclick="batchImport()">开始批量导入</button>
+        </div>
+    </div>
+</div>
+
+<div class="tab-bar">
+    <div class="tab active" onclick="showView('main')">🔍 查卡</div>
+    <div class="tab" onclick="showView('add')">➕ 开卡</div>
+    <div class="tab" onclick="showView('data')">⚙️ 批量/设置</div>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('wash_pro_db_v4')) || [];
+    let activeIdx = -1;
+
+    function save() {
+        localStorage.setItem('wash_pro_db_v4', JSON.stringify(db));
+        document.getElementById('stat-count').innerText = db.length;
+    }
+
+    function showView(view) {
+        ['view-main', 'view-add', 'view-data'].forEach(v => document.getElementById(v).classList.add('hidden'));
+        document.getElementById('view-' + view).classList.remove('hidden');
+        document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['main','add','data'][i] === view));
+    }
+
+    function saveNewMember() {
+        const name = document.getElementById('add-name').value.trim();
+        const phone = document.getElementById('add-phone').value.trim();
+        const plate = document.getElementById('add-plate').value.trim();
+        const count = parseInt(document.getElementById('add-count').value);
+        if(!name || !phone || isNaN(count)) return alert('必填项缺失');
+        db.push({ name, phone, plate, balance: count, logs: [] });
+        save();
+        alert('成功');
+        location.reload();
+    }
+
+    function batchImport() {
+        const text = document.getElementById('import-text').value.trim();
+        if(!text) return alert('请输入内容');
+        const lines = text.split('\n');
+        let count = 0;
+        lines.forEach(line => {
+            const parts = line.split(/[，,]/); // 支持中英文逗号
+            if(parts.length >= 3) {
+                const name = parts[0].trim();
+                const phone = parts[1].trim();
+                const plate = parts[2].trim();
+                const balance = parseInt(parts[3]) || 0;
+                // 简单查重
+                if(!db.find(m => m.phone === phone)) {
+                    db.push({ name, phone, plate, balance, logs: [] });
+                    count++;
+                }
+            }
+        });
+        save();
+        alert(`批量导入成功！新增 ${count} 位会员`);
+        document.getElementById('import-text').value = '';
+        showView('main');
+    }
+
+    function searchMembers() {
+        const val = document.getElementById('search-input').value.toLowerCase();
+        const results = document.getElementById('search-results');
+        results.innerHTML = '';
+        if(!val) { document.getElementById('member-detail').classList.add('hidden'); return; }
+        db.forEach((m, index) => {
+            if(m.name.includes(val) || m.phone.includes(val) || (m.plate && m.plate.toLowerCase().includes(val))) {
+                const div = document.createElement('div');
+                div.className = 'member-item';
+                div.innerHTML = `<span><b>${m.name}</b> <small>${m.plate}</small></span><span class="badge">${m.balance}次</span>`;
+                div.onclick = () => showMember(index);
+                results.appendChild(div);
+            }
+        });
+    }
+
+    function showMember(index) {
+        activeIdx = index;
+        const m = db[index];
+        document.getElementById('det-name').innerText = m.name;
+        document.getElementById('det-phone').innerText = '电话: ' + m.phone;
+        document.getElementById('det-plate').innerText = m.plate || '未录入车牌';
+        document.getElementById('det-balance').innerText = m.balance;
+        const logHtml = m.logs && m.logs.length > 0 ? m.logs.slice(-5).reverse().map(l => `<div class="log-item"><span>${l.type}</span><span style="color:#94a3b8">${l.time}</span></div>`).join('') : '<div style="color:#ccc;text-align:center;font-size:12px;">暂无记录</div>';
+        document.getElementById('det-logs').innerHTML = logHtml;
+        document.getElementById('member-detail').classList.remove('hidden');
+        document.getElementById('search-results').innerHTML = '';
+    }
+
+    function confirmAction(type) {
+        const m = db[activeIdx];
+        const now = new Date();
+        const timeStr = `${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+        if(type === 'wash') {
+            if(m.balance <= 0) return alert('次数不足');
+            m.balance--;
+            m.logs.push({ type: '洗车核销', time: timeStr });
+        } else {
+            const num = prompt('续费次数：', '10');
+            if(num) { m.balance += parseInt(num); m.logs.push({ type: `充值+${num}`, time: timeStr }); }
+        }
+        save(); showMember(activeIdx);
+    }
+
+    function deleteMember() {
+        if(confirm('确定删除？')) { db.splice(activeIdx, 1); save(); location.reload(); }
+    }
+
+    function copyData() {
+        navigator.clipboard.writeText(JSON.stringify(db)).then(() => alert('已复制备份数据'));
+    }
+
+    document.getElementById('stat-count').innerText = db.length;
+</script>
+</body>
+</html>
